@@ -12,6 +12,18 @@
 
 #define AE_NUM_ARGS 3
 
+#define MAX_ARG_LEN 16
+#define MAX_LEN 16
+#define NUM_T 0
+#define AE_T 1
+
+typedef struct _AE_t{
+    int type; // 0 : num, 1 : AE
+    char data[MAX_ARG_LEN];
+    struct _AE_t * lhs; 
+    struct _AE_t * rhs; 
+}AE_t, *AE;
+
 /*
  * allocate AE with 0 (calloc)
  */
@@ -76,7 +88,7 @@ substr(char *in_str, char *out_str,  int i_begin, int i_end){
  * Need concrete syntax to be in exact form( exactly one space, no errors, etc)
  */
 void
-tokenize(char tokens[AE_NUM_ARGS][AE_MAX_LEN], char * str){
+tokenize(char tokens[AE_NUM_ARGS][MAX_ARG_LEN], char * str){
 
     int len = strlen(str);
     int b_stack = 0;
@@ -126,7 +138,7 @@ AEparser(char * block){
             exit(1);
         }
         
-        char tokens[AE_NUM_ARGS][AE_MAX_LEN];
+        char tokens[AE_NUM_ARGS][MAX_ARG_LEN];
         
         tokenize(tokens, in_bracket);
         
@@ -155,39 +167,54 @@ AEprint(AE ae){
     printf(" }");
 }
 
+int AEinterp(AE ae){
+    if(ae->type == NUM_T){
+        return atoi(ae->data);
+    } else {
+        if(strcmp(ae->data, "+") == 0){
+            return AEinterp(ae->lhs) + AEinterp(ae->rhs);
+        } else if(strcmp(ae->data, "-") == 0){
+            return AEinterp(ae->lhs) - AEinterp(ae->rhs);
+        } else {
+            fprintf(stderr, "no operation found\n");
+            exit(1);
+        }
+    }
+}
+
 #ifdef DEBUG
 
-int main()
-{ 
-    char buf[2048];
-    char * teststr = "(+ 1 2)";
-    substr(teststr, buf, 1, strlen(teststr) - 2 );   
+int main(){
     
     AE root;
-
     char * tc1 = "(+ 1 2)";
     char * tc2 = "(+ 1 (+ 3 4))";
     char * tc3 = "(+ 1 (+ (- 2 4) 4))";
-    char * tc4 = "2";
+    char * tc4 = "(+ (- (+ 2 2) (+ (- 2 4) 4))";
+    char * tc5 = "2";
 
     printf("\n=== TEST1 %s === \n", tc1);
     root = AEparser(tc1);
-    AEprint(root);
+    printf("%d\n", AEinterp(root));
 
 
     printf("\n=== TEST2 %s === \n", tc2);
     root = AEparser(tc2);
-    AEprint(root);
+    printf("%d\n", AEinterp(root));
  
 
     printf("\n=== TEST3 %s === \n", tc3);
     root = AEparser(tc3);
-    AEprint(root);
+    printf("%d\n", AEinterp(root));
     
     
     printf("\n=== TEST4 %s === \n", tc4);
     root = AEparser(tc4);
-    AEprint(root);
+    printf("%d\n", AEinterp(root));
+    
+    printf("\n=== TEST5 %s === \n", tc5);
+    root = AEparser(tc5);
+    printf("%d\n", AEinterp(root));
 
     freeAE(root);
     return 0;
