@@ -6,9 +6,6 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "syntax.h"
-
-//#define DEBUG
 
 #define AE_NUM_ARGS 3
 
@@ -55,7 +52,7 @@ freeAE(AE root)
  */
 int 
 check_bracket(char * block, int b_len){
-    if(*block == '(' && *(block + b_len - 1) == ')')
+    if(*block == '{' && *(block + b_len - 1) == '}')
         return 1;
     else 
         return 0;
@@ -97,9 +94,9 @@ tokenize(char tokens[AE_NUM_ARGS][MAX_ARG_LEN], char * str){
     int i_token = 0;
 
     for(int i = 0; i <= len; i++){
-        if(str[i] == '(')
+        if(str[i] == '{')
             b_stack++;
-        if(str[i] == ')')
+        if(str[i] == '}')
             b_stack--;
 
         if((b_stack == 0 && str[i] == ' ') || str[i] == 0x0){
@@ -160,11 +157,11 @@ void
 AEprint(AE ae){
     if(ae == 0x0)
         return;
-    printf("{ ");
+    printf("( ");
     printf("%s", ae->data);
     AEprint(ae->lhs);
     AEprint(ae->rhs);
-    printf(" }");
+    printf(" )");
 }
 
 int AEinterp(AE ae){
@@ -187,10 +184,10 @@ int AEinterp(AE ae){
 int main(){
     
     AE root;
-    char * tc1 = "(+ 1 2)";
-    char * tc2 = "(+ 1 (+ 3 4))";
-    char * tc3 = "(+ 1 (+ (- 2 4) 4))";
-    char * tc4 = "(+ (- (+ 2 2) (+ (- 2 4) 4))";
+    char * tc1 = "{+ 1 2}";
+    char * tc2 = "{+ 1 {+ 3 4}}";
+    char * tc3 = "{+ 1 {+ {- 2 4} 4}}";
+    char * tc4 = "{+ {- {+ 2 2} {+ {- 2 4} 4}}";
     char * tc5 = "2";
 
     printf("\n=== TEST1 %s === \n", tc1);

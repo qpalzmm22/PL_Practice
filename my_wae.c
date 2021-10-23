@@ -1,30 +1,31 @@
-/*
+/*:
  * Expressions must be enclosed with brackets whereas numbers are NOT enclosed with it.
  */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <unistd.h>
+#include <ctype.h>
 
-#include "syntax.h"
-
-//#define DEBUG
 
 #define WAE_NUM_ARGS 4
 
-#define MAX_ARG_LEN 16
+#define MAX_ARG_LEN 256
 #define MAX_LEN 16
 
 #define NUM_T 0
-#define WAE_T 1
-#define WITH_T 2
+#define WITH_T 1
+#define ADD_T 2
+#define SUB_T 3
+#define ID_T 4
+
 
 typedef struct _WAE_t{
-    int type; // 0 : num, 1 : with, 2 : WAE
-    char id[MAX_ARG_LEN];
+    int type; // 0 : num, 1 : with, 2 : add, 3: sub, 4: id
     char data[MAX_ARG_LEN];
-    struct _WAE_t * arg1; 
-    struct _WAE_t * arg2; 
+    struct _WAE_t * arg1; // value lhs
+    struct _WAE_t * arg2; // expr, rhs
 }WAE_t, *WAE;
 
 /*
@@ -58,7 +59,7 @@ freeWAE(WAE root)
  */
 int 
 check_bracket(char * block, int b_len){
-    if(*block == '(' && *(block + b_len - 1) == ')')
+    if(*block == '{' && *(block + b_len - 1) == '}')
         return 1;
     else 
         return 0;
@@ -89,8 +90,8 @@ substring(char *in_str, char *out_str,  int i_begin, int i_end){
 /*
  * Needs tokens to be already allocated
  * Need concrete syntax to be in exact form( exactly one space, no errors, etc)
- */
-void
+ * Returns number of tokens */
+int
 tokenize(char tokens[WAE_NUM_ARGS][MAX_ARG_LEN], char * str){
 
     int len = strlen(str);
@@ -100,20 +101,63 @@ tokenize(char tokens[WAE_NUM_ARGS][MAX_ARG_LEN], char * str){
     int i_token = 0;
 
     for(int i = 0; i <= len; i++){
-        if(str[i] == '(')
+        if(str[i] == '{')
             b_stack++;
-        if(str[i] == ')')
+        if(str[i] == '}')
             b_stack--;
 
         if((b_stack == 0 && str[i] == ' ') || str[i] == 0x0){
+            if(i_token == WAE_NUM_ARGS){
+                fprintf(stderr, "Invalid Syntax !! : Too many args");
+                exit(1);
+            }
             i_end = i - 1;
             substring(str, tokens[i_token], i_start, i_end);
             i_start = i + 1;
             i_token++;
+            //printf("tokens[%d] = %s\n", i_token - 1, tokens[i_token - 1]); 
+           // wae->type = N
         }
-    }         
+    }
+    return i_token;
 }
 
+/*
+ * Unwraps bracket if it does contain it.
+ * returns 1 if it did indeed was enclosed with bracket. If not, it returns 0
+ * caller must free char * after.
+ */
+int
+unwrap_bracket(char *prev, char *after){
+    
+    int b_len = strlen(prev);
+
+    int is_wrapped = check_bracket(prev, b_len);
+    
+    if(is_wrapped){
+    
+        substring(prev, after, 1, (b_len - 2));
+    
+    } else {
+
+        strcpy(after, prev);
+    
+    }
+    return is_wrapped;
+}
+
+/*
+ * Check if str is all digits.
+ * If it is, returns 1
+ * It not, returns 0.
+ *
+ */
+int aredigit(char *str){
+    for(int i = 0; *(str +i) != 0x0; i++){
+        if(!isdigit(str[i])) return 0;
+    }
+    return 1;
+}
 /*
  * Parses concrete syntax into WAE abstract syntax
  * It parses conc_sync by detecting "()"s and spaces.
@@ -123,47 +167,63 @@ WAEparser(char * block){
     WAE node = newWAE(); 
 
     int b_len = strlen(block);
-    
-    char * tmp_str = (char *) malloc(b_len);
+    char *tmp_str = (char*) malloc(sizeof(char) * b_len);
     assert(tmp_str);
-    strcpy(tmp_str, block);
-    
 
+    int is_wrapped = unwrap_bracket(block, tmp_str);
     
-    if(!check_bracket(block, b_len)){
+    char tokens[WAE_NUM_ARGS][MAX_ARG_LEN];
+    
+    int num_tok = tokenize(tokens, tmp_str);
+    
+    if(num_tok == 1 && aredigit(tokens[0])){ // num
+    
         node->type = NUM_T ;
-        strncpy(node->data, block, strlen(block));
+        strcpy(node->data, tokens[0]);
         node->arg1 = 0x0;
         node->arg2 = 0x0;
+    
+    } else if(num_tok == 1){ // id
+
+        node->type = ID_T ;
+        strcpy(node->data, tokens[0]);
+        node->arg1 = 0x0;
+        node->arg2 = 0x0;
+
+    } else if(num_tok == 3 && strcmp(tokens[0], "with") == 0){
+        // calc token nums
+        
+        node->type = WITH_T;
+        
+        char with_tokens[2][MAX_ARG_LEN];
+        char with_tmp_str[MAX_ARG_LEN];
+
+        unwrap_bracket(tokens[1], with_tmp_str);
+        tokenize(with_tokens, with_tmp_str);
+
+        strcpy(node->data, with_tokens[0]);
+        node->arg1 = WAEparser(with_tokens[1]);
+        node->arg2 = WAEparser(tokens[2]);
+    
+    } else if(num_tok == 3 && strcmp(tokens[0],"+") == 0){
+        
+        node->type = ADD_T ;
+        //strcpy(node->data, "add");
+        node->arg1 = WAEparser(tokens[1]);
+        node->arg2 = WAEparser(tokens[2]);
+    
+    } else if(num_tok == 3 && strcmp(tokens[0], "-") == 0) {
+        
+        node->type = SUB_T ;
+        //strcpy(node->data, "sub");
+        node->arg1 = WAEparser(tokens[1]);
+        node->arg2 = WAEparser(tokens[2]);
+    
     } else {
-        char * in_bracket = (char *)malloc(sizeof(char) * (b_len - 2));
-        assert(in_bracket);
-        
-        int in_len = substring(block, in_bracket, 1, (b_len - 2));
-        if(in_len == -1 && in_len != b_len - 2){
-            fprintf(stderr, "Wrong input\n");
-            exit(1);
-        }
-        
-        char tokens[WAE_NUM_ARGS][MAX_ARG_LEN];
-        
-        tokenize(tokens, in_bracket);
-        
-        if(strcmp(tokens[0], "with") == 0){
-            // calc token nums
-            
-            node->type = WITH_T;
-            strncpy(node->id, tokens[1], strlen(tokens[1]));
-            node->arg1 = WAEparser(tokens[2]);
-            node->arg2 = WAEparser(tokens[3]);
-        } else {
-            node->type = WAE_T;
-            strncpy(node->data, tokens[0], strlen(tokens[0]));
-            node->arg1 = WAEparser(tokens[1]);
-            node->arg2 = WAEparser(tokens[2]);
-        }
-        free(in_bracket);
+        fprintf(stderr, "Invalid Syntax\n");
+        exit(1);
     }
+    //printf("tmp_str: %s\n", tmp_str);
     free(tmp_str);
 
     return node;
@@ -177,69 +237,263 @@ void
 WAEprint(WAE wae){
     if(wae == 0x0)
         return;
-    printf("{ ");
-    printf("%s", wae->data);
-    WAEprint(wae->arg1);
-    WAEprint(wae->arg2);
-    printf(" }");
-}
 
-int WAEinterp(WAE wae){
-    if(wae->type == NUM_T){
-        return atoi(wae->data);
-    } else {
-        if(strcmp(wae->data, "+") == 0){
-            return WAEinterp(wae->arg1) + WAEinterp(wae->arg2);
-        } else if(strcmp(wae->data, "-") == 0){
-            return WAEinterp(wae->arg1) - WAEinterp(wae->arg2);
-        } else if(strcmp(wae->data, "with") == 0){
+    switch(wae->type){
+
+        case NUM_T:
+            printf("(num %s)", wae->data);
+            break;
+
+        case ID_T:
             
-        } else {
-            fprintf(stderr, "no operation found\n");
-            exit(1);
-        }
+            printf("(id '%s)", wae->data);
+            break;
+        
+        case ADD_T:
+            
+            printf("(add ");
+            WAEprint(wae->arg1);
+            printf(" ");
+            WAEprint(wae->arg2);
+            printf(")");
+            break;
+
+        case SUB_T:
+ 
+            printf("(sub ");
+            WAEprint(wae->arg1);
+            printf(" ");
+            WAEprint(wae->arg2);
+            printf(")");
+            break;
+        
+        case WITH_T:
+            
+            printf("(with %s ", wae->data);
+            WAEprint(wae->arg1);
+            printf(" ");
+            WAEprint(wae->arg2);
+            printf(")");
+            break;
+
+        default:
+            break;
     }
+
 }
 
-void subst(){
+/*
+ * Calcuate addition of subtraction.
+ * make new node and returns it. original ones are freed.
+ *
+ */
+WAE 
+calc_arith(int op, WAE lhs, WAE rhs){
+    WAE node = newWAE();
     
-}
+    int num1 = atoi(lhs->data);
+    int num2 = atoi(rhs->data);
+    
+    node->type == NUM_T;
+
+    if( op == ADD_T){
+        sprintf(node->data, "%d", num1 + num2);
+    } else if( op == SUB_T){
+        sprintf(node->data, "%d", num1 - num2);
+    } else {
+        fprintf(stderr, "Error in calc...\n");
+        exit(1);
+    }
 
 #ifdef DEBUG
-
-int main(){
-    
-    WAE root;
-    char * tc1 = "(+ 1 2)";
-    char * tc2 = "(+ 1 (+ 3 4))";
-    char * tc3 = "(+ 1 (+ (- 2 4) 4))";
-    char * tc4 = "(+ (- (+ 2 2) (+ (- 2 4) 4))";
-    char * tc5 = "2";
-
-    printf("\n=== TEST1 %s === \n", tc1);
-    root = WAEparser(tc1);
-    printf("%d\n", WAEinterp(root));
-
-
-    printf("\n=== TEST2 %s === \n", tc2);
-    root = WAEparser(tc2);
-    printf("%d\n", WAEinterp(root));
- 
-
-    printf("\n=== TEST3 %s === \n", tc3);
-    root = WAEparser(tc3);
-    printf("%d\n", WAEinterp(root));
+    printf("calc_arith : %s\n", node->data); 
+#endif /* DEBUG */
     
     
-    printf("\n=== TEST4 %s === \n", tc4);
-    root = WAEparser(tc4);
-    printf("%d\n", WAEinterp(root));
-    
-    printf("\n=== TEST5 %s === \n", tc5);
-    root = WAEparser(tc5);
-    printf("%d\n", WAEinterp(root));
+    return node;
+}
 
-    freeWAE(root);
+
+
+
+WAE
+subst(WAE wae, char idtf[MAX_ARG_LEN], WAE val){
+
+    WAE node = newWAE();
+
+#ifdef DEBUG
+    printf("subst=> wae%d : %s, val%d : %s\n", wae->type, wae->data, val->type,val->data);
+#endif /* DEBUG */
+
+    switch(wae->type){
+        case NUM_T:
+            
+            node->type = NUM_T;
+            strcpy(node->data, wae->data);
+            node->arg1 = 0x0;
+            node->arg2 = 0x0;
+            break;
+
+        case ADD_T:
+
+            node->type = ADD_T;
+            node->arg1 = subst(wae->arg1, idtf, val);
+            node->arg2 = subst(wae->arg2, idtf, val);
+            break;
+
+        case SUB_T:
+            
+            node->type = SUB_T;
+            node->arg1 = subst(wae->arg1, idtf, val);
+            node->arg2 = subst(wae->arg2, idtf, val);
+            break;
+
+        case WITH_T:
+            
+            node->type = WITH_T;
+            strcpy(node->data, wae->data);
+            node->arg1 = subst(wae->arg1, idtf, val);
+            node->arg2 = (strcmp(idtf, wae->data) == 0)? wae->arg2 : subst(wae->arg2, idtf, val);
+            break;
+
+        case ID_T:
+
+            if(strcmp(idtf, wae->data) == 0){ // val is already interpreted
+                
+                node->type = NUM_T;
+                strcpy(node->data, val->data);
+                node->arg1 = 0x0;
+                node->arg2 = 0x0;
+            
+            } else{
+                
+                node->type = ID_T;
+                strcpy(node->data, wae->data);
+                node->arg1 = wae->arg1;
+                node->arg2 = wae->arg2;
+            
+            }
+
+            break;
+
+        default:
+            fprintf(stderr, "Invalid Abstract Syntax !!\n");
+            exit(1);
+            break;
+    }
+    //free(wae);
+    //free(val);
+    return node;
+}
+
+/*
+ * Interpreter..
+ *
+ */
+WAE 
+WAEinterp(WAE wae){
+
+#ifdef DEBUG
+    printf("interp=> wae%d : %s\n",wae->type, wae->data);
+#endif /* DEBUG */
+    
+    WAE ret;
+    switch( wae->type ){
+        
+        case NUM_T :
+         
+            ret = wae;
+            break;
+        
+        case ID_T :
+        
+            fprintf(stderr, "Free variable !!\n");
+            exit(1);
+            break;
+        
+        case ADD_T :
+            
+            ret = calc_arith(ADD_T, WAEinterp(wae->arg1), WAEinterp(wae->arg2));
+            break;
+        
+        case SUB_T :
+        
+            ret = calc_arith(SUB_T, WAEinterp(wae->arg1), WAEinterp(wae->arg2));
+            break;
+        
+        case WITH_T :
+
+            ret = WAEinterp( subst(wae->arg2, wae->data, WAEinterp(wae->arg1)));
+            break;
+        
+        default:
+            fprintf(stderr, "no operation found\n");
+            exit(1);
+            break;
+    }
+    return ret;
+}
+
+void
+printHelp(){
+    printf("\nUsuage : ./my_wae [-p] [-i] conc_syntax\n"
+                    "\n"
+                    "\tDefault is printing both parser and interpreter\n"
+                    "\tIf you wish to see only parsed wae or interpreted wae, use following options."
+                    "\n"
+                    "\t [-p] : only parser option\n"
+                    "\t\tprints only abstract syntax of parser\n"
+                    "\n"
+                    "\t [-i] : only interprepter option\n"
+                    "\t\tprints only result of interpreting it\n"
+                    "\n");
+}
+
+int main(int argc, char ** argv){
+    
+    int p_flag = 0;
+    int i_flag = 0;
+
+    int opt;
+    while((opt = getopt(argc, argv, "phi")) != -1){
+        switch(opt){
+            case 'p':
+                p_flag = 1;
+                break;
+            case 'i':
+                i_flag = 1;
+                break;
+            case 'h':
+                printHelp();
+                break;
+            default : /* ? */
+                printHelp();
+                exit(1);
+         }
+    }
+    if (optind >= argc){
+        fprintf(stderr, "Expects concrete syntax after options\n");
+        exit(1);
+    }
+    
+    WAE root = WAEparser(argv[optind]); 
+    WAE result = WAEinterp(root);
+
+    if( p_flag){
+        WAEprint(root);
+        printf("\n\n");
+    } 
+    if( i_flag ){
+        WAEprint(result);
+        printf("\n\n");
+    }
+    if( !i_flag && !p_flag ){
+        WAEprint(root);
+        printf("\n\n");
+        WAEprint(result);
+        printf("\n\n");
+    
+    }
     return 0;
 }
-#endif /* DEBUG */
+
