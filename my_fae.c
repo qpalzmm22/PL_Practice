@@ -8,49 +8,64 @@
 #include <unistd.h>
 #include <ctype.h>
 
+#include "my_fae.h"
 
-#define WAE_NUM_ARGS 4
+#define FAE_NUM_ARGS 4
 
-#define MAX_ARG_LEN 256
 #define MAX_LEN 16
 
-#define NUM_T 0
-#define WITH_T 1
-#define ADD_T 2
-#define SUB_T 3
-#define ID_T 4
-
-
-typedef struct _WAE_t{
-    int type; // 0 : num, 1 : with, 2 : add, 3: sub, 4: id
-    char data[MAX_ARG_LEN];
-    struct _WAE_t * arg1; // value lhs
-    struct _WAE_t * arg2; // expr, rhs
-}WAE_t, *WAE;
+#define WITH_T 6
 
 /*
- * allocate WAE with 0 (calloc)
+ * allocate FAE with 0 (calloc)
  */
-WAE
-newWAE()
+FAE
+newFAE()
 {
-    WAE new = (WAE)calloc(1, sizeof(WAE_t));
+    FAE new = (FAE)calloc(1, sizeof(FAE_t));
     assert(new);
 
     return new; 
 }
 
 /*
+ * allocate FAE_Value with 0 (calloc)
+ */
+FAE_Value
+newFAE_Value()
+{
+    FAE_Value new = (FAE_Value)calloc(1, sizeof(FAE_Value_t));
+    assert(new);
+
+    return new; 
+}
+
+/*
+ * allocate DefrdSub with 0 (calloc)
+ * There's default value for ds.
+ */
+DefrdSub
+newDefrdSub()
+{
+    DefrdSub new = (DefrdSub)calloc(1, sizeof(DefrdSub_t));
+    assert(new);
+
+    ds->type = MTSUB_T;
+    ds->value = 0x0;
+    return new;
+}
+
+/*
  * Frees all the elements inside. Then frees the root.
  */
 void 
-freeWAE(WAE root) 
+freeFAE(FAE root) 
 {
     if(root == 0x0)
         return;
 
-    freeWAE(root->arg1);
-    freeWAE(root->arg2);
+    freeFAE(root->arg1);
+    freeFAE(root->arg2);
     free(root);
 }
 
@@ -88,11 +103,41 @@ substring(char *in_str, char *out_str,  int i_begin, int i_end){
 }
 
 /*
+ * Looks up name from ds and substitue to it if id is found
+ */
+FAE_Value
+lookup(char name[MAX_ARG_LEN], DefrdSub ds){
+    
+    if (ds->type == MTSUB_T){
+        
+        fprintf(stderr, "Free identifier in lookup\n");
+        exit(1);
+
+    } else if(ds->type == ASUB_T){
+     
+        if(strcmp(ds->name, name) == 0){
+
+            return ds->value;
+            
+        } else {
+            
+            return lookup(name, ds->ds);
+        }
+    
+    } else {
+        
+        fprintf(stderr, "Wrong type in lookup\n");
+        exit(1);
+    
+    }
+}
+
+/*
  * Needs tokens to be already allocated
  * Need concrete syntax to be in exact form( exactly one space, no errors, etc)
  * Returns number of tokens */
 int
-tokenize(char tokens[WAE_NUM_ARGS][MAX_ARG_LEN], char * str){
+tokenize(char tokens[FAE_NUM_ARGS][MAX_ARG_LEN], char * str){
 
     int len = strlen(str);
     int b_stack = 0;
@@ -107,7 +152,7 @@ tokenize(char tokens[WAE_NUM_ARGS][MAX_ARG_LEN], char * str){
             b_stack--;
 
         if((b_stack == 0 && str[i] == ' ') || str[i] == 0x0){
-            if(i_token == WAE_NUM_ARGS){
+            if(i_token == FAE_NUM_ARGS){
                 fprintf(stderr, "Invalid Syntax !! : Too many args");
                 exit(1);
             }
@@ -116,7 +161,7 @@ tokenize(char tokens[WAE_NUM_ARGS][MAX_ARG_LEN], char * str){
             i_start = i + 1;
             i_token++;
             //printf("tokens[%d] = %s\n", i_token - 1, tokens[i_token - 1]); 
-           // wae->type = N
+           // fae->type = N
         }
     }
     return i_token;
@@ -159,12 +204,12 @@ int aredigit(char *str){
     return 1;
 }
 /*
- * Parses concrete syntax into WAE abstract syntax
+ * Parses concrete syntax into FAE abstract syntax
  * It parses conc_sync by detecting "()"s and spaces.
  */
-WAE 
-WAEparser(char * block){
-    WAE node = newWAE(); 
+FAE 
+FAEparser(char * block){
+    FAE node = newFAE(); 
 
     int b_len = strlen(block);
     char *tmp_str = (char*) malloc(sizeof(char) * b_len);
@@ -172,7 +217,7 @@ WAEparser(char * block){
 
     int is_wrapped = unwrap_bracket(block, tmp_str);
     
-    char tokens[WAE_NUM_ARGS][MAX_ARG_LEN];
+    char tokens[FAE_NUM_ARGS][MAX_ARG_LEN];
     
     int num_tok = tokenize(tokens, tmp_str);
     
@@ -193,7 +238,7 @@ WAEparser(char * block){
     } else if(num_tok == 3 && strcmp(tokens[0], "with") == 0){
         // calc token nums
         
-        node->type = WITH_T;
+        node->type = APP_T;
         
         char with_tokens[2][MAX_ARG_LEN];
         char with_tmp_str[MAX_ARG_LEN];
@@ -201,29 +246,56 @@ WAEparser(char * block){
         unwrap_bracket(tokens[1], with_tmp_str);
         tokenize(with_tokens, with_tmp_str);
 
-        strcpy(node->data, with_tokens[0]);
-        node->arg1 = WAEparser(with_tokens[1]);
-        node->arg2 = WAEparser(tokens[2]);
+        FAE node2 = newFAE(); 
+        node2->type = FUN_T;
+
+        strcpy(node2->data, with_tokens[0]);
+        node2->arg1 = FAEparser(tokens[2]);
+        node2->arg2 = 0x0;
+
+        node->arg1 = node2;
+        node->arg2 = FAEparser(with_tokens[1]);
+        
     
+    } else if(num_tok == 3 && strcmp(tokens[0], "fun") == 0){
+    
+        node->type = FUN_T ;
+        
+        char fun_tokens[1][MAX_ARG_LEN];
+        char fun_tmp_str[MAX_ARG_LEN];
+
+        unwrap_bracket(tokens[1], fun_tmp_str);
+        tokenize(fun_tokens, fun_tmp_str);
+
+        strcpy(node->data, fun_tokens[0]);
+        node->arg1 = FAEparser(tokens[2]);
+        node->arg2 = 0x0;
+   
     } else if(num_tok == 3 && strcmp(tokens[0],"+") == 0){
         
         node->type = ADD_T ;
         //strcpy(node->data, "add");
-        node->arg1 = WAEparser(tokens[1]);
-        node->arg2 = WAEparser(tokens[2]);
+        node->arg1 = FAEparser(tokens[1]);
+        node->arg2 = FAEparser(tokens[2]);
     
     } else if(num_tok == 3 && strcmp(tokens[0], "-") == 0) {
         
         node->type = SUB_T ;
         //strcpy(node->data, "sub");
-        node->arg1 = WAEparser(tokens[1]);
-        node->arg2 = WAEparser(tokens[2]);
+        node->arg1 = FAEparser(tokens[1]);
+        node->arg2 = FAEparser(tokens[2]);
     
+    } else if(num_tok == 2) {
+        
+        node->type = APP_T ;
+        node->arg1 = FAEparser(tokens[0]);
+        node->arg2 = FAEparser(tokens[1]);
+
     } else {
         fprintf(stderr, "Invalid Syntax\n");
         exit(1);
     }
-    printf("tmp_str: %s\n", tmp_str);
+    //printf("tmp_str: %s\n", tmp_str);
     free(tmp_str);
 
     return node;
@@ -231,50 +303,56 @@ WAEparser(char * block){
 
 /*
  * TODO
- * prints abstract syntax of WAE recursively
+ * prints abstract syntax of FAE recursively
  */
 void
-WAEprint(WAE wae){
-    if(wae == 0x0)
+FAEprint(FAE fae){
+    if(fae == 0x0)
         return;
 
-    switch(wae->type){
+    switch(fae->type){
 
         case NUM_T:
-            printf("(num %s)", wae->data);
+            printf("(num %s)", fae->data);
             break;
 
         case ID_T:
             
-            printf("(id '%s)", wae->data);
+            printf("(id '%s)", fae->data);
             break;
         
         case ADD_T:
             
             printf("(add ");
-            WAEprint(wae->arg1);
+            FAEprint(fae->arg1);
             printf(" ");
-            WAEprint(wae->arg2);
+            FAEprint(fae->arg2);
             printf(")");
             break;
 
         case SUB_T:
  
             printf("(sub ");
-            WAEprint(wae->arg1);
+            FAEprint(fae->arg1);
             printf(" ");
-            WAEprint(wae->arg2);
+            FAEprint(fae->arg2);
             printf(")");
             break;
         
-        case WITH_T:
+        case FUN_T:
             
-            printf("(with %s ", wae->data);
-            WAEprint(wae->arg1);
-            printf(" ");
-            WAEprint(wae->arg2);
+            printf("(fun '%s ", fae->data);
+            FAEprint(fae->arg1);
             printf(")");
             break;
+        
+        case APP_T:
+            
+            printf("(app ");
+            FAEprint(fae->arg1);
+            printf(" ");
+            FAEprint(fae->arg2);
+            printf(")");
 
         default:
             break;
@@ -287,14 +365,14 @@ WAEprint(WAE wae){
  * make new node and returns it. original ones are freed.
  *
  */
-WAE 
-calc_arith(int op, WAE lhs, WAE rhs){
-    WAE node = newWAE();
+FAE_Value
+calc_arith(int op, FAE lhs, FAE rhs){
+    FAE_Value node = newFAE_Value();
     
     int num1 = atoi(lhs->data);
     int num2 = atoi(rhs->data);
     
-    node->type == NUM_T;
+    node->type == NUMV_T;
 
     if( op == ADD_T){
         sprintf(node->data, "%d", num1 + num2);
@@ -305,131 +383,95 @@ calc_arith(int op, WAE lhs, WAE rhs){
         exit(1);
     }
 
+    node->body = 0x0;
+    node->ds = 0x0;
+
 #ifdef DEBUG
     printf("calc_arith : %s\n", node->data); 
 #endif /* DEBUG */
     
+    return node;
+}
+
+
+/*
+ * Copies all the values from src to dest
+*/ 
+void
+copy_FAE_Value(FAE_Value dest, FAE_Value src){
     
-    return node;
 }
-
-
-
-
-WAE
-subst(WAE wae, char idtf[MAX_ARG_LEN], WAE val){
-
-    WAE node = newWAE();
-
-#ifdef DEBUG
-    printf("subst=> wae%d : %s, val%d : %s\n", wae->type, wae->data, val->type,val->data);
-#endif /* DEBUG */
-
-    switch(wae->type){
-        case NUM_T:
-            
-            node->type = NUM_T;
-            strcpy(node->data, wae->data);
-            node->arg1 = 0x0;
-            node->arg2 = 0x0;
-            break;
-
-        case ADD_T:
-
-            node->type = ADD_T;
-            node->arg1 = subst(wae->arg1, idtf, val);
-            node->arg2 = subst(wae->arg2, idtf, val);
-            break;
-
-        case SUB_T:
-            
-            node->type = SUB_T;
-            node->arg1 = subst(wae->arg1, idtf, val);
-            node->arg2 = subst(wae->arg2, idtf, val);
-            break;
-
-        case WITH_T:
-            
-            node->type = WITH_T;
-            strcpy(node->data, wae->data);
-            node->arg1 = subst(wae->arg1, idtf, val);
-            node->arg2 = (strcmp(idtf, wae->data) == 0)? wae->arg2 : subst(wae->arg2, idtf, val);
-            break;
-
-        case ID_T:
-
-            if(strcmp(idtf, wae->data) == 0){ // val is already interpreted
-                
-                node->type = NUM_T;
-                strcpy(node->data, val->data);
-                node->arg1 = 0x0;
-                node->arg2 = 0x0;
-            
-            } else{
-                
-                node->type = ID_T;
-                strcpy(node->data, wae->data);
-                node->arg1 = wae->arg1;
-                node->arg2 = wae->arg2;
-            
-            }
-
-            break;
-
-        default:
-            fprintf(stderr, "Invalid Abstract Syntax !!\n");
-            exit(1);
-            break;
-    }
-    free(wae);
-    //free(val);
-    return node;
-}
-
 /*
  * Interpreter..
  *
  */
-WAE 
-WAEinterp(WAE wae){
+FAE_Value 
+FAEinterp(FAE fae, DefrdSub ds){
 
 #ifdef DEBUG
-    printf("interp=> wae%d : %s\n",wae->type, wae->data);
+    printf("interp=> fae%d : %s\n",fae->type, fae->data);
 #endif /* DEBUG */
     
-    WAE ret;
-    switch( wae->type ){
+    FAE_Value ret = newFAE_Value();
+    switch( fae->type ){
         
         case NUM_T :
-         
-            ret = wae;
-            ret->type = NUM_T;
-            strcpy(ret->data, wae->data);
-            ret->arg1 = 0x0;
-            ret->arg2 = 0x0;
+            
+            ret->NUMV_T;
+            strcpy(ret->data, fae->data);
+            ret->body = 0x0;
+            ret->ds = 0x0;
+
             break;
         
         case ID_T :
         
-            fprintf(stderr, "Free variable !!\n");
-            exit(1);
+            ret = lookup(fae->value, ds);
             break;
         
         case ADD_T :
+    
+            // needs to be freed
+            calc_result = calc_arith(ADD_T, FAEinterp(fae->arg1, ds), FAEinterp(fae->arg2, ds));
             
-            ret = calc_arith(ADD_T, WAEinterp(wae->arg1), WAEinterp(wae->arg2));
             break;
         
         case SUB_T :
         
-            ret = calc_arith(SUB_T, WAEinterp(wae->arg1), WAEinterp(wae->arg2));
+            // needs to be freed
+            ret = calc_arith(SUB_T, FAEinterp(fae->arg1, ds), FAEinterp(fae->arg2, ds));
             break;
         
-        case WITH_T :
+        case FUN_T :
 
-            ret = WAEinterp( subst(wae->arg2, wae->data, WAEinterp(wae->arg1)));
+            // needs to be allocated
+            ret->CLOSUREV_T;
+            strcpy(ret->data, fae->data);
+            ret->body = fae->arg1;
+            ret->ds = ds;
+
             break;
-        
+
+        case APP_T :;
+
+            // interp must allocate ..?
+            FAE_Value f_val = FAEinterp(fae->arg1, ds);
+            FAE_Value a_val = FAEinterp(fae->arg2, ds);
+
+            FAE cV_body = f_val->body;
+            char* cV_param = f_val->data;
+            DefrdSub cV_ds = f_val->ds;
+
+            DefrdSub outer_ds = newDefrdSub();
+            outer_ds->type = ASUB_T;
+            strcpy(outer_ds->name, cV_param);
+            outer_ds->value = a_val;
+            outer_ds->ds = cV_ds;
+
+            return FAEinterp(cV_body, outer_ds);
+
+            break;
+
         default:
             fprintf(stderr, "no operation found\n");
             exit(1);
@@ -440,10 +482,10 @@ WAEinterp(WAE wae){
 
 void
 printHelp(){
-    printf("\nUsuage : ./my_wae [-p] [-i] conc_syntax\n"
+    printf("\nUsuage : ./my_fae [-p] [-i] conc_syntax\n"
                     "\n"
                     "\tDefault is printing both parser and interpreter\n"
-                    "\tIf you wish to see only parsed wae or interpreted wae, use following options."
+                    "\tIf you wish to see only parsed fae or interpreted fae, use following options."
                     "\n"
                     "\t [-p] : only parser option\n"
                     "\t\tprints only abstract syntax of parser\n"
@@ -473,31 +515,33 @@ int main(int argc, char ** argv){
             default : /* ? */
                 printHelp();
                 exit(1);
-         //}
+         }
     }
     if (optind >= argc){
         fprintf(stderr, "Expects concrete syntax after options\n");
         exit(1);
     }
     
-    WAE root = WAEparser(argv[optind]); 
-    WAE result = WAEinterp(root);
+    FAE root = FAEparser(argv[optind]); 
+    
+    DefredSub ds = newDefrdSub();
 
     if( p_flag){
-        WAEprint(root);
+        FAEprint(root);
         printf("\n\n");
     } 
     if( i_flag ){
-        WAEprint(result);
+        FAE result = FAEinterp(root, ds);
+        FAEprint(result);
         printf("\n\n");
     }
     if( !i_flag && !p_flag ){
-        WAEprint(root);
+        FAEprint(root);
         printf("\n\n");
-        WAEprint(result);
+        FAE result = FAEinterp(root, ds);
+        FAEprint(result);
         printf("\n\n");
     
     }
     return 0;
 }
-
