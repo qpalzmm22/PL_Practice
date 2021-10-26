@@ -38,4 +38,10 @@ typedef struct _DefrdSub_t{
     struct _DefrdSub_t * ds ;
 }DefrdSub_t, *DefrdSub;
 
+void
+DefrdSub_print(DefrdSub ds);
+
+void
+FAE_Value_print(FAE_Value fae_value);
+
 #endif /* _HAV_MY_FAE_H_ */

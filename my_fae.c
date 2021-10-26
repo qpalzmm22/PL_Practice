@@ -50,8 +50,8 @@ newDefrdSub()
     DefrdSub new = (DefrdSub)calloc(1, sizeof(DefrdSub_t));
     assert(new);
 
-    ds->type = MTSUB_T;
-    ds->value = 0x0;
+    new->type = MTSUB_T;
+    new->value = 0x0;
     return new;
 }
 
@@ -361,12 +361,49 @@ FAEprint(FAE fae){
 }
 
 /*
+ * prints DefrdSub recursively
+ */
+void
+DefrdSub_print(DefrdSub ds){
+    
+    if(ds == 0x0 ){
+        //printf("no ds\n");
+        return ;
+    }
+
+    if(ds->type == MTSUB_T){
+        return ;
+    } else {
+        printf("ds : [%s] : ", ds->name);
+        FAE_Value_print(ds->value);
+        printf("\n");
+        DefrdSub_print(ds->ds);
+    }
+
+}
+ 
+/*
+ * prints FAE_Value recursively
+ */
+void
+FAE_Value_print(FAE_Value fae_value){
+    
+    if(fae_value == 0x0){
+        //printf("no FAE_val\n");
+        return ;
+    }
+    printf("(NumV %s)\n", fae_value->data);
+ 
+    FAEprint(fae_value->body);
+    DefrdSub_print(fae_value->ds);
+}
+/*
  * Calcuate addition of subtraction.
  * make new node and returns it. original ones are freed.
  *
  */
 FAE_Value
-calc_arith(int op, FAE lhs, FAE rhs){
+calc_arith(int op, FAE_Value lhs, FAE_Value rhs){
     FAE_Value node = newFAE_Value();
     
     int num1 = atoi(lhs->data);
@@ -417,7 +454,7 @@ FAEinterp(FAE fae, DefrdSub ds){
         
         case NUM_T :
             
-            ret->NUMV_T;
+            ret->type = NUMV_T;
             strcpy(ret->data, fae->data);
             ret->body = 0x0;
             ret->ds = 0x0;
@@ -426,26 +463,25 @@ FAEinterp(FAE fae, DefrdSub ds){
         
         case ID_T :
         
-            ret = lookup(fae->value, ds);
+            ret = lookup(fae->data, ds); // ds->FAE_Value
             break;
         
         case ADD_T :
-    
-            // needs to be freed
-            calc_result = calc_arith(ADD_T, FAEinterp(fae->arg1, ds), FAEinterp(fae->arg2, ds));
+            
+            free(ret);
+            ret = calc_arith(ADD_T, FAEinterp(fae->arg1, ds), FAEinterp(fae->arg2, ds));
             
             break;
         
         case SUB_T :
-        
-            // needs to be freed
+
+            free(ret);
             ret = calc_arith(SUB_T, FAEinterp(fae->arg1, ds), FAEinterp(fae->arg2, ds));
             break;
         
         case FUN_T :
 
-            // needs to be allocated
-            ret->CLOSUREV_T;
+            ret->type = CLOSUREV_T;
             strcpy(ret->data, fae->data);
             ret->body = fae->arg1;
             ret->ds = ds;
@@ -467,8 +503,14 @@ FAEinterp(FAE fae, DefrdSub ds){
             strcpy(outer_ds->name, cV_param);
             outer_ds->value = a_val;
             outer_ds->ds = cV_ds;
+            
+            free(ret);
 
-            return FAEinterp(cV_body, outer_ds);
+            ret = FAEinterp(cV_body, outer_ds);
+
+            free(f_val);
+            free(a_val);
+            free(outer_ds);
 
             break;
 
@@ -524,22 +566,22 @@ int main(int argc, char ** argv){
     
     FAE root = FAEparser(argv[optind]); 
     
-    DefredSub ds = newDefrdSub();
+    DefrdSub ds = newDefrdSub();
 
     if( p_flag){
         FAEprint(root);
         printf("\n\n");
     } 
     if( i_flag ){
-        FAE result = FAEinterp(root, ds);
-        FAEprint(result);
+        FAE_Value result = FAEinterp(root, ds);
+        FAE_Value_print(result);
         printf("\n\n");
     }
     if( !i_flag && !p_flag ){
         FAEprint(root);
         printf("\n\n");
-        FAE result = FAEinterp(root, ds);
-        FAEprint(result);
+        FAE_Value result = FAEinterp(root, ds);
+        FAE_Value_print(result);
         printf("\n\n");
     
     }

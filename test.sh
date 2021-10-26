@@ -1,6 +1,6 @@
 #!/bin/bash
 
-test_prog="./my_fae -p"
+test_prog="./my_fae "
 tc1="{+ 1 2}"
 tc2="{with {x {with {t 3} {+ t 1}}} {+ 3 4}}"
 tc3="{with {x 3} {+ x 1}}"
@@ -10,6 +10,7 @@ tc6="{with {x {with {t x} {+ t 1}}} {+ 3 4}}" # free variable
 tc7="{with {x 2} {+ {with {x 3} {+ x 1}} 4}}" # 7
 tc8="{+ {- {+ 2 2} {+ {with {x 3} {+ 1 x}} 2}} 1}"
 tc9="{the 3}"
+tc10="{{fun {x} {+ x 1}} 7}"
 
 echo "=== test case 1 === "
 echo "${tc1}"
@@ -46,3 +47,7 @@ ${test_prog} "${tc8}"
 echo "=== test case 9 === "
 echo "${tc9}"
 ${test_prog} "${tc9}"
+
+echo "=== test case 10 === "
+echo "${tc10}"
+${test_prog} "${tc10}"
