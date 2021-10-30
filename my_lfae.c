@@ -1,4 +1,4 @@
-/*:
+/*
  * Expressions must be enclosed with brackets whereas numbers are NOT enclosed with it.
  */
 #include <stdio.h>
@@ -8,34 +8,40 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#include "my_fae.h"
+#include "my_lfae.h"
 
-#define FAE_NUM_ARGS 4
+#define LFAE_NUM_ARGS 4
 
-#define MAX_LEN 16
-
-#define WITH_T 6
 
 /*
- * allocate FAE with 0 (calloc)
+ * allocate LFAE with 0 (calloc)
  */
-FAE
-newFAE()
+LFAE
+newLFAE()
 {
-    FAE new = (FAE)calloc(1, sizeof(FAE_t));
+    LFAE new = (LFAE)calloc(1, sizeof(LFAE_t));
     assert(new);
 
+    new->type = NUM_T;
+    new->arg1 = 0x0;
+    new->arg1 = 0x0;
+    
     return new; 
 }
 
 /*
- * allocate FAE_Value with 0 (calloc)
+ * allocate LFAE_Value with 0 (calloc)
  */
-FAE_Value
-newFAE_Value()
+LFAE_Value
+newLFAE_Value()
 {
-    FAE_Value new = (FAE_Value)calloc(1, sizeof(FAE_Value_t));
+    LFAE_Value new = (LFAE_Value)calloc(1, sizeof(LFAE_Value_t));
     assert(new);
+    
+    new->type = NUMV_T; 
+    new->body = 0x0;
+    new->ds = 0x0;
+    new->box = 0x0;
 
     return new; 
 }
@@ -52,22 +58,107 @@ newDefrdSub()
 
     new->type = MTSUB_T;
     new->value = 0x0;
+    new->ds = 0x0;
     return new;
 }
 
 /*
+ * allocate LFAE with 0 (calloc)
+ */
+Box
+newBox()
+{
+    Box new = (Box)calloc(1, sizeof(Box_t));
+    assert(new);
+    
+    new->isempty = EMPTY;
+    new->value = 0x0;
+    return new; 
+}
+/*
  * Frees all the elements inside. Then frees the root.
  */
 void 
-freeFAE(FAE root) 
+freeLFAE(LFAE node) 
 {
-    if(root == 0x0)
+    printf("Freeing LFAE \t\t%p\n", node);
+    if(node == NULL || node->type == FREED)
         return;
 
-    freeFAE(root->arg1);
-    freeFAE(root->arg2);
-    free(root);
+    LFAE arg1 = node->arg1;
+    LFAE arg2 = node->arg2;
+    
+    printf("Actually Freeing LFAE\n");
+    
+    //node->type = FREED;
+    free(node);
+    node = 0x0;
+    
+    freeLFAE(arg1);
+    freeLFAE(arg2);
 }
+
+void
+freeLFAE_Value(LFAE_Value node)
+{
+    printf("Freeing LFAE_Value \t\t%p\n", node);
+    if(node == NULL || node->type == FREED)
+        return ;
+    
+    LFAE body = node->body;
+    DefrdSub ds = node->ds;
+    Box box = node->box;
+    
+    printf("Actually Freeing LFAE_Value\n");
+
+    node->type = FREED;
+    free(node);
+    node = 0x0;
+
+    freeLFAE(body);
+    freeDefrdSub(ds);
+    freeBox(box);
+}
+
+void
+freeDefrdSub(DefrdSub node)
+{
+    printf("Freeing DefrdSub \t\t%p\n",node);
+    if(node == NULL || node->type == FREED)
+        return ;
+    
+    LFAE_Value value = node->value;
+    DefrdSub ds = node->ds;
+    
+    printf("Actually Freeing DefrdSub\n");
+
+    node->type = FREED;
+    free(node);
+    node = 0x0;
+
+    freeLFAE_Value(value);
+    if(node == ds)
+        freeDefrdSub(ds);
+}
+
+void
+freeBox(Box node)
+{
+    printf("Freeing Box \t\t%p\n", node);
+    if(node == NULL || node->isempty == FREED)
+        return;
+    
+    LFAE_Value value = node->value;
+
+    printf("Actually Freeing Box\n");
+    
+    node->isempty = FREED;
+    free(node);
+    node = 0x0;
+    
+    freeLFAE_Value(value);
+}
+    
 
 /*
  * check if a block starts with "(" and end with ")"
@@ -102,42 +193,13 @@ substring(char *in_str, char *out_str,  int i_begin, int i_end){
     return cnt;
 }
 
-/*
- * Looks up name from ds and substitue to it if id is found
- */
-FAE_Value
-lookup(char name[MAX_ARG_LEN], DefrdSub ds){
-    
-    if (ds->type == MTSUB_T){
-        
-        fprintf(stderr, "Free identifier in lookup\n");
-        exit(1);
-
-    } else if(ds->type == ASUB_T){
-     
-        if(strcmp(ds->name, name) == 0){
-
-            return ds->value;
-            
-        } else {
-            
-            return lookup(name, ds->ds);
-        }
-    
-    } else {
-        
-        fprintf(stderr, "Wrong type in lookup\n");
-        exit(1);
-    
-    }
-}
 
 /*
  * Needs tokens to be already allocated
  * Need concrete syntax to be in exact form( exactly one space, no errors, etc)
  * Returns number of tokens */
 int
-tokenize(char tokens[FAE_NUM_ARGS][MAX_ARG_LEN], char * str){
+tokenize(char tokens[LFAE_NUM_ARGS][MAX_ARG_LEN], char * str){
 
     int len = strlen(str);
     int b_stack = 0;
@@ -152,7 +214,7 @@ tokenize(char tokens[FAE_NUM_ARGS][MAX_ARG_LEN], char * str){
             b_stack--;
 
         if((b_stack == 0 && str[i] == ' ') || str[i] == 0x0){
-            if(i_token == FAE_NUM_ARGS){
+            if(i_token == LFAE_NUM_ARGS){
                 fprintf(stderr, "Invalid Syntax !! : Too many args");
                 exit(1);
             }
@@ -161,7 +223,7 @@ tokenize(char tokens[FAE_NUM_ARGS][MAX_ARG_LEN], char * str){
             i_start = i + 1;
             i_token++;
             //printf("tokens[%d] = %s\n", i_token - 1, tokens[i_token - 1]); 
-           // fae->type = N
+           // lfae->type = N
         }
     }
     return i_token;
@@ -176,7 +238,6 @@ int
 unwrap_bracket(char *prev, char *after){
     
     int b_len = strlen(prev);
-
     int is_wrapped = check_bracket(prev, b_len);
     
     if(is_wrapped){
@@ -203,13 +264,81 @@ int aredigit(char *str){
     }
     return 1;
 }
+
 /*
- * Parses concrete syntax into FAE abstract syntax
+ * Looks up name from ds and substitue to it if id is found
+ */
+LFAE_Value
+lookup(char name[MAX_ARG_LEN], DefrdSub ds){
+    
+#ifdef DEBUG
+    printf("\nlookup=> name[%s], ds->name[%s] \n", name, ds->name);
+ //   if(ds->value)LFAE_Value_print(ds->value);
+    printf("type : %d\n", ds->type);
+#endif /* DEBUG */
+
+    LFAE_Value ret;
+
+    if (ds->type == MTSUB_T){
+        
+        fprintf(stderr, "Free identifier in lookup\n");
+        exit(1);
+
+    } else if(ds->type == ASUB_T){
+     
+        if(strcmp(ds->name, name) == 0){
+
+            ret = strict(ds->value);
+            
+        } else {
+            
+            ret = lookup(name, ds->ds);
+        }
+    
+    } else {
+        
+        fprintf(stderr, "Wrong type in lookup\n");
+        exit(1);
+    
+    }
+    return ret;
+}
+
+/*
+ * Unboxes LFAE-Value
+ */
+LFAE_Value
+strict(LFAE_Value lfae_val){
+    LFAE_Value ret;
+
+    if(lfae_val->type == EXPRV_T){
+        if(lfae_val->box->isempty == EMPTY){
+            
+            LFAE_Value v = strict( LFAEinterp( lfae_val->body, lfae_val->ds ) );
+            
+            lfae_val->box->value = v;
+            ret = v;
+        
+        }else {
+
+            ret = lfae_val->box->value;      
+
+        }
+    } else {
+
+        ret = lfae_val;
+    
+    }
+    return ret; 
+}
+
+/*
+ * Parses concrete syntax into LFAE abstract syntax
  * It parses conc_sync by detecting "()"s and spaces.
  */
-FAE 
-FAEparser(char * block){
-    FAE node = newFAE(); 
+LFAE 
+LFAEparser(char * block){
+    LFAE node = newLFAE(); 
 
     int b_len = strlen(block);
     char *tmp_str = (char*) malloc(sizeof(char) * b_len);
@@ -217,7 +346,7 @@ FAEparser(char * block){
 
     int is_wrapped = unwrap_bracket(block, tmp_str);
     
-    char tokens[FAE_NUM_ARGS][MAX_ARG_LEN];
+    char tokens[LFAE_NUM_ARGS][MAX_ARG_LEN];
     
     int num_tok = tokenize(tokens, tmp_str);
     
@@ -246,15 +375,15 @@ FAEparser(char * block){
         unwrap_bracket(tokens[1], with_tmp_str);
         tokenize(with_tokens, with_tmp_str);
 
-        FAE node2 = newFAE(); 
+        LFAE node2 = newLFAE(); 
         node2->type = FUN_T;
 
         strcpy(node2->data, with_tokens[0]);
-        node2->arg1 = FAEparser(tokens[2]);
+        node2->arg1 = LFAEparser(tokens[2]);
         node2->arg2 = 0x0;
 
         node->arg1 = node2;
-        node->arg2 = FAEparser(with_tokens[1]);
+        node->arg2 = LFAEparser(with_tokens[1]);
         
     
     } else if(num_tok == 3 && strcmp(tokens[0], "fun") == 0){
@@ -268,32 +397,34 @@ FAEparser(char * block){
         tokenize(fun_tokens, fun_tmp_str);
 
         strcpy(node->data, fun_tokens[0]);
-        node->arg1 = FAEparser(tokens[2]);
+        node->arg1 = LFAEparser(tokens[2]);
         node->arg2 = 0x0;
    
     } else if(num_tok == 3 && strcmp(tokens[0],"+") == 0){
         
         node->type = ADD_T ;
         //strcpy(node->data, "add");
-        node->arg1 = FAEparser(tokens[1]);
-        node->arg2 = FAEparser(tokens[2]);
+        node->arg1 = LFAEparser(tokens[1]);
+        node->arg2 = LFAEparser(tokens[2]);
     
     } else if(num_tok == 3 && strcmp(tokens[0], "-") == 0) {
         
         node->type = SUB_T ;
         //strcpy(node->data, "sub");
-        node->arg1 = FAEparser(tokens[1]);
-        node->arg2 = FAEparser(tokens[2]);
+        node->arg1 = LFAEparser(tokens[1]);
+        node->arg2 = LFAEparser(tokens[2]);
     
     } else if(num_tok == 2) {
         
         node->type = APP_T ;
-        node->arg1 = FAEparser(tokens[0]);
-        node->arg2 = FAEparser(tokens[1]);
+        node->arg1 = LFAEparser(tokens[0]);
+        node->arg2 = LFAEparser(tokens[1]);
 
     } else {
+
         fprintf(stderr, "Invalid Syntax\n");
         exit(1);
+        
     }
     //printf("tmp_str: %s\n", tmp_str);
     free(tmp_str);
@@ -303,55 +434,56 @@ FAEparser(char * block){
 
 /*
  * TODO
- * prints abstract syntax of FAE recursively
+ * prints abstract syntax of LFAE recursively
  */
 void
-FAEprint(FAE fae){
-    if(fae == 0x0)
+LFAEprint(LFAE lfae){
+    if(lfae == 0x0)
         return;
 
-    switch(fae->type){
+    switch(lfae->type){
 
         case NUM_T:
-            printf("(num %s)", fae->data);
+
+            printf("(num %s)", lfae->data);
             break;
 
         case ID_T:
             
-            printf("(id '%s)", fae->data);
+            printf("(id '%s)", lfae->data);
             break;
         
         case ADD_T:
             
             printf("(add ");
-            FAEprint(fae->arg1);
+            LFAEprint(lfae->arg1);
             printf(" ");
-            FAEprint(fae->arg2);
+            LFAEprint(lfae->arg2);
             printf(")");
             break;
 
         case SUB_T:
  
             printf("(sub ");
-            FAEprint(fae->arg1);
+            LFAEprint(lfae->arg1);
             printf(" ");
-            FAEprint(fae->arg2);
+            LFAEprint(lfae->arg2);
             printf(")");
             break;
         
         case FUN_T:
             
-            printf("(fun '%s ", fae->data);
-            FAEprint(fae->arg1);
+            printf("(fun '%s ", lfae->data);
+            LFAEprint(lfae->arg1);
             printf(")");
             break;
         
         case APP_T:
             
             printf("(app ");
-            FAEprint(fae->arg1);
+            LFAEprint(lfae->arg1);
             printf(" ");
-            FAEprint(fae->arg2);
+            LFAEprint(lfae->arg2);
             printf(")");
 
         default:
@@ -361,54 +493,104 @@ FAEprint(FAE fae){
 }
 
 /*
+ * prints Box recursively
+ */
+void
+Box_print(Box box){
+    
+    if(box == 0x0){
+        return ;
+    }
+
+    if(box->isempty == EMPTY){
+        
+        printf("'f");
+    
+    } else { // won't be executed since if it exist, that means there's an error.
+        LFAE_Value_print(box->value);
+    }
+}
+/*
  * prints DefrdSub recursively
  */
 void
 DefrdSub_print(DefrdSub ds){
     
     if(ds == 0x0 ){
-        //printf("no ds\n");
         return ;
     }
 
     if(ds->type == MTSUB_T){
+        printf("(mtSub)");
         return ;
-    } else {
-        printf("ds : [%s] : ", ds->name);
-        FAE_Value_print(ds->value);
-        printf("\n");
+    } else if(ds->type == ASUB_T) { 
+
+        printf("(aSub %s ", ds->name);
+        LFAE_Value_print(ds->value);
+        printf(" ");
         DefrdSub_print(ds->ds);
     }
 
 }
  
 /*
- * prints FAE_Value recursively
+ * prints LFAE_Value recursively
  */
 void
-FAE_Value_print(FAE_Value fae_value){
-    
-    if(fae_value == 0x0){
-        //printf("no FAE_val\n");
+LFAE_Value_print(LFAE_Value lfae_value){
+    if(lfae_value == 0x0){
+        //printf("no LFAE_val\n");
         return ;
     }
-    printf("(NumV %s)\n", fae_value->data);
- 
-    FAEprint(fae_value->body);
-    DefrdSub_print(fae_value->ds);
+    switch(lfae_value->type){
+        
+        case NUMV_T :
+            
+            printf("(numV %s)\n", lfae_value->data);
+            break;
+
+        case CLOSUREV_T : 
+            
+            printf("(closureV %s ", lfae_value->data);
+            LFAEprint(lfae_value->body);
+            printf(" ");
+            DefrdSub_print(lfae_value->ds);
+            printf(")");
+            break;
+
+        case EXPRV_T : 
+            
+            printf("(exprV ");
+            LFAEprint(lfae_value->body);
+            printf(" ");
+            DefrdSub_print(lfae_value->ds);
+            printf(" ");
+            Box_print(lfae_value->box);
+            printf(")");
+
+            break ;
+
+        default : 
+            fprintf(stderr, "Error in printing LFAE_Value\n");
+            exit(1);
+            break;
+    }
+
+
 }
+
 /*
  * Calcuate addition of subtraction.
  * make new node and returns it. original ones are freed.
  *
  */
-FAE_Value
-calc_arith(int op, FAE_Value lhs, FAE_Value rhs){
-    FAE_Value node = newFAE_Value();
+LFAE_Value
+calc_arith(int op, LFAE_Value lhs, LFAE_Value rhs){
+    LFAE_Value node = newLFAE_Value();
     
     int num1 = atoi(lhs->data);
     int num2 = atoi(rhs->data);
-    
+
     node->type == NUMV_T;
 
     if( op == ADD_T){
@@ -426,7 +608,8 @@ calc_arith(int op, FAE_Value lhs, FAE_Value rhs){
 #ifdef DEBUG
     printf("calc_arith : %s\n", node->data); 
 #endif /* DEBUG */
-    
+   
+
     return node;
 }
 
@@ -435,55 +618,60 @@ calc_arith(int op, FAE_Value lhs, FAE_Value rhs){
  * Copies all the values from src to dest
 */ 
 void
-copy_FAE_Value(FAE_Value dest, FAE_Value src){
+copy_LFAE_Value(LFAE_Value dest, LFAE_Value src){
     
 }
 /*
  * Interpreter..
  *
  */
-FAE_Value 
-FAEinterp(FAE fae, DefrdSub ds){
+LFAE_Value
+LFAEinterp(LFAE lfae, DefrdSub ds){
 
 #ifdef DEBUG
-    printf("interp=> fae%d : %s\n",fae->type, fae->data);
+    printf("\ninterp=> lfae %d\n", lfae->type);
+    printf("data : %s\n", lfae->data);
+    if(lfae->arg1) printf("arg1->type : %d\n", lfae->arg1->type);
+    if(lfae->arg2) printf("arg2->type : %d\n", lfae->arg2->type);
+    printf("\n");
 #endif /* DEBUG */
     
-    FAE_Value ret = newFAE_Value();
-    switch( fae->type ){
+    LFAE_Value ret = newLFAE_Value();
+
+    switch( lfae->type ){
         
         case NUM_T :
             
             ret->type = NUMV_T;
-            strcpy(ret->data, fae->data);
+            strcpy(ret->data, lfae->data);
             ret->body = 0x0;
             ret->ds = 0x0;
 
             break;
         
-        case ID_T :
-        
-            ret = lookup(fae->data, ds); // ds->FAE_Value
-            break;
-        
         case ADD_T :
             
             free(ret);
-            ret = calc_arith(ADD_T, FAEinterp(fae->arg1, ds), FAEinterp(fae->arg2, ds));
+            ret = calc_arith(ADD_T, LFAEinterp(lfae->arg1, ds), LFAEinterp(lfae->arg2, ds));
             
             break;
         
         case SUB_T :
 
             free(ret);
-            ret = calc_arith(SUB_T, FAEinterp(fae->arg1, ds), FAEinterp(fae->arg2, ds));
+            ret = calc_arith(SUB_T, LFAEinterp(lfae->arg1, ds), LFAEinterp(lfae->arg2, ds));
+            break;
+        
+        case ID_T :
+        
+            ret = lookup(lfae->data, ds); // ds->LFAE_Value
             break;
         
         case FUN_T :
 
             ret->type = CLOSUREV_T;
-            strcpy(ret->data, fae->data);
-            ret->body = fae->arg1;
+            strcpy(ret->data, lfae->data);
+            ret->body = lfae->arg1;
             ret->ds = ds;
 
             break;
@@ -491,14 +679,22 @@ FAEinterp(FAE fae, DefrdSub ds){
         case APP_T :;
 
             // interp must allocate ..?
-            FAE_Value f_val = FAEinterp(fae->arg1, ds);
-            FAE_Value a_val = FAEinterp(fae->arg2, ds);
+            LFAE_Value f_val = strict(LFAEinterp(lfae->arg1, ds));
+            LFAE_Value a_val = newLFAE_Value();
 
-            FAE cV_body = f_val->body;
+            a_val->body = lfae->arg2;
+            a_val->type = EXPRV_T ;
+            a_val->ds = ds;
+            a_val->box = newBox();
+            a_val->box->isempty = EMPTY;
+            //LFAE a_val = LFAEinterp(lfae->arg2, ds);
+
+            LFAE cV_body = f_val->body;
             char* cV_param = f_val->data;
             DefrdSub cV_ds = f_val->ds;
 
             DefrdSub outer_ds = newDefrdSub();
+     
             outer_ds->type = ASUB_T;
             strcpy(outer_ds->name, cV_param);
             outer_ds->value = a_val;
@@ -506,11 +702,8 @@ FAEinterp(FAE fae, DefrdSub ds){
             
             free(ret);
 
-            ret = FAEinterp(cV_body, outer_ds);
+            ret = LFAEinterp(cV_body, outer_ds);
 
-            free(f_val);
-            //free(a_val);
-            free(outer_ds);
 
             break;
 
@@ -524,10 +717,10 @@ FAEinterp(FAE fae, DefrdSub ds){
 
 void
 printHelp(){
-    printf("\nUsuage : ./my_fae [-p] [-i] conc_syntax\n"
+    printf("\nUsuage : ./my_lfae [-p] [-i] conc_syntax\n"
                     "\n"
                     "\tDefault is printing both parser and interpreter\n"
-                    "\tIf you wish to see only parsed fae or interpreted fae, use following options."
+                    "\tIf you wish to see only parsed lfae or interpreted lfae, use following options.\n"
                     "\n"
                     "\t [-p] : only parser option\n"
                     "\t\tprints only abstract syntax of parser\n"
@@ -558,6 +751,7 @@ int main(int argc, char ** argv){
             case 'h':
             
                 printHelp();
+                exit(0);
                 break;
             
             default : /* ? */
@@ -572,39 +766,39 @@ int main(int argc, char ** argv){
         exit(1);
     }
     
-    FAE root = FAEparser(argv[optind]); 
+    LFAE root = LFAEparser(argv[optind]); 
     
     DefrdSub ds = newDefrdSub();
 
     if( p_flag){
 
-        FAEprint(root);
+        LFAEprint(root);
         printf("\n\n");
 
     } 
     if( i_flag ){
 
-        FAE_Value result = FAEinterp(root, ds);
-        FAE_Value_print(result);
+        LFAE_Value result = LFAEinterp(root, ds);
+        LFAE_Value_print(result);
         printf("\n\n");
     
-        free(result);
+        freeLFAE_Value(result);
 
     }
     if( !i_flag && !p_flag ){
 
-        FAEprint(root);
+        LFAEprint(root);
         printf("\n\n");
-        FAE_Value result = FAEinterp(root, ds);
-        FAE_Value_print(result);
+        LFAE_Value result = LFAEinterp(root, ds);
+        LFAE_Value_print(result);
         printf("\n\n");
         
-        free(result);
+       freeLFAE_Value(result);
 
     }
 
-    free(ds);
-    freeFAE(root);
+    //free(ds);
+    //freeLFAE(root);
 
     return 0;
 }

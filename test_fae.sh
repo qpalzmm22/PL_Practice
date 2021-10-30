@@ -12,6 +12,9 @@ tc8="{+ {- {+ 2 2} {+ {with {x 3} {+ 1 x}} 2}} 1}"
 tc9="{the 3}"
 tc10="{{fun {x} {+ x 1}} 7}"
 
+tc0="{with {x 3} {with {f {fun {y} {+ x y}}} {with {x 5} {f 4}}}}"
+tc00="{with {f {fun {y} {+ x y}}} {with {x 5} {f 4}}}"
+
 echo "=== test case 1 === "
 echo "${tc1}"
 ${test_prog} "${tc1}" 
@@ -51,3 +54,11 @@ ${test_prog} "${tc9}"
 echo "=== test case 10 === "
 echo "${tc10}"
 ${test_prog} "${tc10}"
+
+echo "=== test case 0 === "
+echo "${tc0}"
+${test_prog} "${tc0}"
+
+echo "=== test case 00 === "
+echo "${tc00}"
+${test_prog} "${tc00}"

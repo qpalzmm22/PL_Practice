@@ -2,14 +2,10 @@
 
 #debug=-DDEBUG
 
-all : FAE
+all : LFAEDS
 
-AE:
-	gcc -o my_ae my_ae.c ${debug}
+LFAEDS: 
+	gcc -o my_lfaeds my_lfaeds.c ${debug}
 
-WAE: 
-	gcc -o my_wae my_wae.c ${debug}
-
-FAE: 
-	gcc -o my_fae my_fae.c ${debug}
-
+clean :
+	rm my_lfaeds

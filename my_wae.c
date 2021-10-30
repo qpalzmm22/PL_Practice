@@ -473,7 +473,7 @@ int main(int argc, char ** argv){
             default : /* ? */
                 printHelp();
                 exit(1);
-         //}
+         }
     }
     if (optind >= argc){
         fprintf(stderr, "Expects concrete syntax after options\n");
