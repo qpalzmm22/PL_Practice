@@ -10,7 +10,7 @@ before_install:
 
 script:
   - make
-  - ./test_lfaeds.sh
+  - ./test.sh
 
 after_install:
   - echo "=== After Test ==="

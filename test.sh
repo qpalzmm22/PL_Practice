@@ -1,6 +1,6 @@
 #!/bin/bash
 
-test_prog="./my_lfaeds "
+test_prog="./mjyint "
 tc1="{+ 1 2}"
 tc2="{with {x {with {t 3} {+ t 1}}} {+ 3 4}}"
 tc3="{with {x 3} {with {f {fun {y} {+ x y}}} {with {x 5} {f 4}}}}"
