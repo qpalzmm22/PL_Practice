@@ -1,10 +1,5 @@
 language : c
 
-os:
-  - osx
-  - windows
-  - freebsd
-
 before_install:
   - echo "=== Before Install ==="
 
