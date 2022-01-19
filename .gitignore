@@ -1,3 +1,6 @@
 mjyint
 hall_of_fame/
 AFLplusplus/
+fuzz_mjyint
+out/
+seeds/

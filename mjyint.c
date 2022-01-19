@@ -13,7 +13,6 @@
 #define LFAEDS_NUM_ARGS 4
 #define MAXSTR 1024
 
-
 /*
  * allocate LFAEDS with 0 (calloc)
  */
@@ -207,7 +206,7 @@ tokenize(char tokens[LFAEDS_NUM_ARGS][MAX_ARG_LEN], char * str){
         if((b_stack == 0 && str[i] == ' ') || str[i] == 0x0){
             if(i_token == LFAEDS_NUM_ARGS){
                 fprintf(stderr, "Invalid Syntax !! : Too many args");
-                exit(1);
+                exit(0);
             }
             i_end = i - 1;
             substring(str, tokens[i_token], i_start, i_end);
@@ -274,7 +273,7 @@ lookup(char name[MAX_ARG_LEN], DefrdSub ds){
     if (ds->type == MTSUB_T){
         
         fprintf(stderr, "Free identifier in lookup\n");
-        exit(1);
+        exit(0);
 
     } else if(ds->type == ASUB_T){
      
@@ -290,7 +289,7 @@ lookup(char name[MAX_ARG_LEN], DefrdSub ds){
     } else {
         
         fprintf(stderr, "Wrong type in lookup\n");
-        exit(1);
+        exit(0);
     
     }
     return ret;
@@ -430,8 +429,7 @@ LFAEDSparser(char * block){
     } else {
 
         fprintf(stderr, "Invalid Syntax\n");
-        exit(1);
-        
+		exit(0);
     }
     //printf("tmp_str: %s\n", tmp_str);
     free(tmp_str);
@@ -593,8 +591,7 @@ LFAEDS_Value_print(LFAEDS_Value lfaeds_value){
 
         default : 
             fprintf(stderr, "Error in printing LFAEDS_Value\n");
-            exit(1);
-            break;
+			exit(0);
     }
 
 
@@ -619,8 +616,8 @@ calc_arith(int op, LFAEDS_Value lhs, LFAEDS_Value rhs){
     } else if( op == SUB_T){
         sprintf(node->data, "%d", num1 - num2);
     } else {
-        fprintf(stderr, "Error in calc...\n");
-        exit(1);
+		fprintf(stderr, "Error in calc...\n");
+		exit(0);
     }
 
     node->body = 0x0;
@@ -751,7 +748,7 @@ LFAEDSinterp(LFAEDS lfaeds, DefrdSub ds){
             } else {
 
                 fprintf(stderr, "Error in LFAEDS_Value type");
-                exit(1);
+				exit(0);
 
             }
 
@@ -767,8 +764,7 @@ LFAEDSinterp(LFAEDS lfaeds, DefrdSub ds){
 
         default:
             fprintf(stderr, "no operation found\n");
-            exit(1);
-            break;
+			exit(0);
     }
     return ret;
 }
@@ -810,8 +806,8 @@ int main(int argc, char ** argv){
             case 'h':
             
                 printHelp();
-                exit(0);
-                break;
+                return 0;
+				break;
             
             default : /* ? */
             
@@ -820,18 +816,20 @@ int main(int argc, char ** argv){
         
         }
     }
-    if (optind >= argc){
-        fprintf(stderr, "Expects concrete syntax after options\n");
-        exit(1);
-    }
+    //if (optind >= argc){
+        //fprintf(stderr, "Expects concrete syntax after options\n");
+        //return 0;
+    //}
     
-    LFAEDS root = LFAEDSparser(argv[optind]);
-
-   // while(1){
-   //  fgets(in_str, MAXSTR, stdin);
-   //   in_str[strcspn(in_str, "\n")] = 0;
+   // LFAEDS root = LFAEDSparser(argv[optind]);
+	
+	//if(root == 0x0)
+	//return 0;
+//	while(1){
+      fgets(in_str, MAXSTR, stdin);
+      in_str[strcspn(in_str, "\n")] = 0x0;
       
-   //   LFAEDS root = LFAEDSparser(in_str); 
+      LFAEDS root = LFAEDSparser(in_str); 
       
       DefrdSub ds = newDefrdSub();
 
@@ -858,13 +856,13 @@ int main(int argc, char ** argv){
           LFAEDS_Value_print(result);
           printf("\n\n");
           
-         freeLFAEDS_Value(result);
+        // freeLFAEDS_Value(result);
 
       }
 
       free(ds);
       freeLFAEDS(root);
- //   }
+//    }
 
     return 0;
 }

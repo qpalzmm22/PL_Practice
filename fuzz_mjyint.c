@@ -12,6 +12,7 @@ int main(){
   char in_str[MAXLEN];
 
   fgets(in_str, MAXLEN, stdin);
+  in_str[strcspn(in_str, "\n")] = 0x0;
 
   if(getcwd(cur_path, MAXLEN) == NULL){
     fprintf(stderr, "Erorr in getting current dir");
@@ -19,6 +20,6 @@ int main(){
   }
   sprintf(target_path, "%s/%s", cur_path, test_prog);
     
-  execl(target_path, target_path, in_str);
+  execl(target_path, target_path, in_str, NULL);
   return 0;
 }
