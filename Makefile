@@ -2,10 +2,10 @@
 
 #debug=-DDEBUG
 
-all : LFAEDS
+all : mjyint
 
-LFAEDS: 
-	gcc -o my_lfaeds my_lfaeds.c ${debug}
+mjyint : 
+	gcc -o mjyint mjyint.c ${debug}
 
 clean :
-	rm my_lfaeds
+	rm mjyint

@@ -8,9 +8,10 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#include "my_lfaeds.h"
+#include "mjyint.h"
 
 #define LFAEDS_NUM_ARGS 4
+#define MAXSTR 1024
 
 
 /*
@@ -313,7 +314,7 @@ strict(LFAEDS_Value lfaeds_val){
         }else {
 
             ret = lfaeds_val->box->value;      
-            lfaeds_val->box->isempty == EXPRV_T ;
+            lfaeds_val->box->isempty = EXPRV_T ;
 
         }
     } else {
@@ -611,7 +612,7 @@ calc_arith(int op, LFAEDS_Value lhs, LFAEDS_Value rhs){
     int num1 = atoi(lhs->data);
     int num2 = atoi(rhs->data);
 
-    node->type == NUMV_T;
+    node->type = NUMV_T;
 
     if( op == ADD_T){
         sprintf(node->data, "%d", num1 + num2);
@@ -793,6 +794,7 @@ int main(int argc, char ** argv){
     int i_flag = 0;
 
     int opt;
+    char in_str[MAXSTR];
     while((opt = getopt(argc, argv, "phi")) != -1){
         switch(opt){
             case 'p':
@@ -823,39 +825,46 @@ int main(int argc, char ** argv){
         exit(1);
     }
     
-    LFAEDS root = LFAEDSparser(argv[optind]); 
-    
-    DefrdSub ds = newDefrdSub();
+    LFAEDS root = LFAEDSparser(argv[optind]);
 
-    if( p_flag){
+   // while(1){
+   //  fgets(in_str, MAXSTR, stdin);
+   //   in_str[strcspn(in_str, "\n")] = 0;
+      
+   //   LFAEDS root = LFAEDSparser(in_str); 
+      
+      DefrdSub ds = newDefrdSub();
 
-        LFAEDSprint(root);
-        printf("\n\n");
+      if( p_flag){
 
-    } 
-    if( i_flag ){
+          LFAEDSprint(root);
+          printf("\n\n");
 
-        LFAEDS_Value result = LFAEDSinterp(root, ds);
-        LFAEDS_Value_print(result);
-        printf("\n\n");
-    
-        freeLFAEDS_Value(result);
+      } 
+      if( i_flag ){
 
-    }
-    if( !i_flag && !p_flag ){
+          LFAEDS_Value result = LFAEDSinterp(root, ds);
+          LFAEDS_Value_print(result);
+          printf("\n\n");
+      
+          freeLFAEDS_Value(result);
 
-        LFAEDSprint(root);
-        printf("\n\n");
-        LFAEDS_Value result = LFAEDSinterp(root, ds);
-        LFAEDS_Value_print(result);
-        printf("\n\n");
-        
-       freeLFAEDS_Value(result);
+      }
+      if( !i_flag && !p_flag ){
 
-    }
+          LFAEDSprint(root);
+          printf("\n\n");
+          LFAEDS_Value result = LFAEDSinterp(root, ds);
+          LFAEDS_Value_print(result);
+          printf("\n\n");
+          
+         freeLFAEDS_Value(result);
 
-    free(ds);
-    freeLFAEDS(root);
+      }
+
+      free(ds);
+      freeLFAEDS(root);
+ //   }
 
     return 0;
 }
