@@ -13,10 +13,6 @@ declare -a tclist=("{+ 1 2}"
   "{{fun {x} {+ x 1}} 7}"
   "{with {x 3} {with {f {fun {y} {+ x y}}} {with {x 5} {f 4}}}}"
   "{with {f {dsfun {y} {+ x y}}} {with {x 5} {f 4}}}"
-  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 )
 
 for val in "${tclist[@]}";

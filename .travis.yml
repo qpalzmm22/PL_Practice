@@ -1,11 +1,16 @@
 language : c
 
-before_install:
-  - echo "=== Before Install ==="
+sudo: false
+
+env:
+ - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_SKIP_CPUFREQ=1 AFL_NO_UI=1 AFL_STOP_MANUALLY=1
 
 script:
   - make
   - ./test.sh
+  - ./fuzz_test.sh
 
-after_install:
-  - echo "=== After Test ==="
+notifications:
+  email:
+    recipients:
+      - qpalzmm22@gmail.com
