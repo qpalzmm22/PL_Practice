@@ -1,0 +1,11 @@
+language : c
+
+before_install:
+  - echo "=== Before Install ==="
+
+script:
+  - make
+  - ./test_lfaeds.sh
+
+after_install:
+  - echo "=== After Test ==="
