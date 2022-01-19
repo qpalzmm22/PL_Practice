@@ -7,5 +7,5 @@ make
 cd ..
 mkdir seeds
 echo input > seeds/inp1 
-AFLplusplus/afl-gcc -o fuzz_mjyint test_mjyint.c
+AFLplusplus/afl-gcc -o fuzz_mjyint fuzz_mjyint.c
 AFLplusplus/afl-fuzz -i seeds -o out ./fuzz_mjyint
