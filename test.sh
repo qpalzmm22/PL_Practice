@@ -3,6 +3,7 @@
 test_prog="./mjyint "
 
 declare -a tclist=(
+  "123"
   "hel"
   "{the 3}"
   "{+ 1 2}"
