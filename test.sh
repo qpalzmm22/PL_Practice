@@ -19,7 +19,7 @@ declare -a tclist=(
 for val in "${tclist[@]}";
 do
   echo "=== test case ${val} === "
-  ${test_prog} "${val}"
+  echo  "${val}" | ${test_prog} 
 done
 
 #echo {python -c "print 'a' *10"}

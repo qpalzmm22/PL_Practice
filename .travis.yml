@@ -7,7 +7,6 @@ env:
 
 script:
   - make
-  - make fuzz
   - ./test.sh
   - ./fuzz_test.sh
 
