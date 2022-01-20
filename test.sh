@@ -21,9 +21,10 @@ for val in "${tclist[@]}";
 do
   echo "=== test case ${val} === "
   echo  "${val}" | ${test_prog} 
-  if [ $? -ne 0 ];
+  exitcode=$?
+  if [ exitcode -ne 0 ];
   then
-	exit $?
+	exit exitcode
   fi
 done
 
