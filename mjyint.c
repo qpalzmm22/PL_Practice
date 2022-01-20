@@ -756,7 +756,7 @@ LFAEDSinterp(LFAEDS lfaeds, DefrdSub ds){
             strcpy(inner_ds->name, cV_param);
             inner_ds->value = a_val;
             
-            //free(ret);
+            free(ret);
 
             ret = LFAEDSinterp(cV_body, inner_ds);
 
@@ -766,6 +766,7 @@ LFAEDSinterp(LFAEDS lfaeds, DefrdSub ds){
             fprintf(stderr, "no operation found\n");
 			exit(0);
     }
+	free(lfaeds);
     return ret;
 }
 
@@ -856,12 +857,12 @@ int main(int argc, char ** argv){
           LFAEDS_Value_print(result);
           printf("\n\n");
           
-        // freeLFAEDS_Value(result);
+		  freeLFAEDS_Value(result);
 
       }
 
       free(ds);
-      freeLFAEDS(root);
+      //freeLFAEDS(root);
 //    }
 
     return 0;
