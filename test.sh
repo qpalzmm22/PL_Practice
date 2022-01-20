@@ -3,10 +3,10 @@
 test_prog="./mjyint "
 
 declare -a tclist=(
-  "123"
   "hel"
   "{the 3}"
   "{+ 1 2}"
+  "123"
   "{+ {- {+ 2 2} {+ {- 2 4} 4}}}"
   "{with {x {with {t 3} {+ t 1}}} {+ 3 4}}"
   "{with {x {with {t x} {+ t 1}}} {+ 3 4}}" # free variable
@@ -21,6 +21,10 @@ for val in "${tclist[@]}";
 do
   echo "=== test case ${val} === "
   echo  "${val}" | ${test_prog} 
+  if [ $? -ne 0 ];
+  then
+	exit $?
+  fi
 done
 
 #echo {python -c "print 'a' *10"}
