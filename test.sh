@@ -6,7 +6,7 @@ declare -a tclist=(
   "hel"
   "{the 3}"
   "{+ 1 2}"
-  "123"
+#"123"
   "{+ {- {+ 2 2} {+ {- 2 4} 4}}}"
   "{with {x {with {t 3} {+ t 1}}} {+ 3 4}}"
   "{with {x {with {t x} {+ t 1}}} {+ 3 4}}" # free variable

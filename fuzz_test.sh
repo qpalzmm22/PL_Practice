@@ -8,4 +8,4 @@ cd ..
 mkdir seeds
 echo "{+ 1 2}" > seeds/inp1 
 AFLplusplus/afl-gcc -o fuzz_mjyint mjyint.c
-AFLplusplus/afl-fuzz -i seeds -o out ./fuzz_mjyint
+AFLplusplus/afl-fuzz -i seeds -o out2 ./fuzz_mjyint
