@@ -7,5 +7,5 @@ make
 cd ..
 mkdir seeds
 echo "{+ 1 2}" > seeds/inp1 
-AFLplusplus/afl-gcc -o fuzz_mjyint mjyint.c
+AFLplusplus/afl-cc -o fuzz_mjyint mjyint.c
 AFLplusplus/afl-fuzz -i seeds -o out ./fuzz_mjyint
